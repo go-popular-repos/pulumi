@@ -54,7 +54,10 @@ type ServeOptions struct {
 	// If non-nil, Serve will gracefully terminate the server when Cancel is closed or receives true.
 	Cancel chan bool
 
-	// Options for serving gRPC.
+	// Options for serving gRPC. Can be used to configure TLS credentials if transport security
+	// is required. By default, the server uses unencrypted connections on localhost, which is
+	// suitable for local inter-process communication. To enable TLS, pass grpc.Creds() with
+	// appropriate credentials.TransportCredentials.
 	Options []grpc.ServerOption
 }
 
@@ -77,6 +80,8 @@ func serveWithOptions(opts ServeOptions) (ServeHandle, chan error, error) {
 	port := opts.Port
 
 	// Listen on a TCP port, but let the kernel choose a free port for us.
+	// Security Note: Binding to 127.0.0.1 ensures the server only accepts connections from localhost,
+	// preventing external network access.
 	lis, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		return ServeHandle{Port: port}, nil,
@@ -86,6 +91,10 @@ func serveWithOptions(opts ServeOptions) (ServeHandle, chan error, error) {
 	health := health.NewServer()
 
 	// Now new up a gRPC server and register any RPC interfaces the caller wants.
+	// Security Note: This server binds to localhost (127.0.0.1) only and uses unencrypted connections
+	// by default. This is acceptable for local inter-process communication. If transport security is
+	// required, callers can pass grpc.Creds() with appropriate credentials.TransportCredentials via
+	// opts.Options to enable TLS.
 
 	srv := grpc.NewServer(append(opts.Options, grpc.MaxRecvMsgSize(maxRPCMessageSize))...)
 
